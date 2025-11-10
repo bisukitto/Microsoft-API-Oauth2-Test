@@ -1,0 +1,23 @@
+### .gitignore ###
+.venv/
+__pycache__/
+migrations/
+instance/
+.vscode/
+.idea/
+dist/
+build/
+Lib/
+Scripts/
+*.pyc
+.env
+.pub
+*.sqlite3
+.DS_Store
+.ini
+*.log
+*.spec
+id_rsa
+
+### VS Code ###
+.vscode/
