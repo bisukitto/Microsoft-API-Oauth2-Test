@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Auth Callback</title>
+</head>
+<body>
+    <h3>Auth Result & SharePoint Files</h3>
+    <pre id="result">Getting token...</pre>
+    <h4>SharePoint Document Library Files:</h4>
+    <pre id="files">Loading...</pre>
+
+    <script>
+        const tenant = "common";
+        const clientId = "8a08863c-2d59-4624-ac9f-5d252565610a";
+        const redirectUri = "http://localhost:5500/auth.html";
+
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+        const verifier = sessionStorage.getItem("verifier");
+
+        async function getToken() {
+            const tokenEndpoint = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`;
+            const body = new URLSearchParams({
+                client_id: clientId,
+                redirect_uri: redirectUri,
+                grant_type: "authorization_code",
+                code: code,
+                code_verifier: verifier
+            });
+
+            const res = await fetch(tokenEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: body
+            });
+
+            return res.json();
+        }
+
+        async function loadFiles(accessToken) {
+            document.getElementById("files").innerText = "Loading SharePoint Sites...";
+
+            // Step 1: 取得使用者有權限的 SharePoint Sites
+            const siteRes = await fetch(
+                "https://graph.microsoft.com/v1.0/sites?search=*",
+                {
+                    headers: { "Authorization": `Bearer ${accessToken}` }
+                }
+            );
+            const siteData = await siteRes.json();
+            console.log("Sites:", siteData);
+
+            const siteId = siteData?.value?.[0]?.id;
+            if (!siteId) {
+                document.getElementById("files").innerText = "No Sites available.";
+                return;
+            }
+
+            document.getElementById("files").innerText = "Loading Files...";
+
+            // Step 2: 讀取 files in document library
+            const driveRes = await fetch(
+                `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root/children`,
+                {
+                    headers: { "Authorization": `Bearer ${accessToken}` }
+                }
+            );
+            const driveData = await driveRes.json();
+            console.log("Files:", driveData);
+
+            document.getElementById("files").innerText =
+                JSON.stringify(driveData, null, 4);
+        }
+
+        async function main() {
+            if (!code || !verifier) {
+                document.getElementById("result").innerText =
+                    "No authorization code found!";
+                return;
+            }
+
+            const tokenData = await getToken();
+            document.getElementById("result").innerText =
+                JSON.stringify(tokenData, null, 4);
+
+            if (tokenData.access_token) {
+                loadFiles(tokenData.access_token);
+            } else {
+                document.getElementById("files").innerText =
+                    "No access token found!";
+            }
+        }
+
+        main();
+    </script>
+</body>
+</html>

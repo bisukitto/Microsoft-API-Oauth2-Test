@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>MS OAuth2 PKCE Test</title>
+</head>
+<body>
+    <h2>Microsoft OAuth2 Login Test</h2>
+    <button id="login">Login with Microsoft</button>
+
+    <script>
+        const tenant = "common"; // or your tenant ID
+        const clientId = "8a08863c-2d59-4624-ac9f-5d252565610a";
+        const redirectUri = "http://localhost:5500/auth.html";
+        // const scope = "openid profile email offline_access";
+        const scope = "openid profile offline_access https://graph.microsoft.com/Sites.Read.All";
+
+        // PKCE utilities
+        async function generateCodeVerifier() {
+            const array = new Uint32Array(56);
+            crypto.getRandomValues(array);
+            return Array.from(array, dec => ('0' + dec.toString(16)).slice(-2)).join('');
+        }
+
+        async function sha256(str) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(str);
+            return crypto.subtle.digest("SHA-256", data);
+        }
+
+        function base64UrlEncode(buffer) {
+            let str = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+            return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        async function generateChallenge(verifier) {
+            const hash = await sha256(verifier);
+            return base64UrlEncode(hash);
+        }
+
+        document.getElementById("login").addEventListener("click", async () => {
+            const verifier = await generateCodeVerifier();
+            const challenge = await generateChallenge(verifier);
+
+            sessionStorage.setItem("verifier", verifier);
+
+            const authUrl =
+                `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize?` +
+                `client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}` +
+                `&response_mode=query&scope=${encodeURIComponent(scope)}&code_challenge=${challenge}&code_challenge_method=S256`;
+
+            // window.location.href = authUrl;
+            window.location.assign(authUrl);
+        });
+    </script>
+</body>
+</html>
